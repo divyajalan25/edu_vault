@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📜 EduVault: Blockchain-Verified Credential Ledger
 
-## Getting Started
+**EduVault** is a decentralized-inspired ecosystem built to solve the crisis of academic credential fraud. By using unique cryptographic hashes and automated verification loops, it ensures that every degree issued is permanent, verifiable, and secure.
 
-First, run the development server:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Key Features
+* **Institutional Node (Issuer)**: Authorized universities can register a secure node and mint single or bulk certificates into the ledger.
+* **Immutable Cryptographic Hashing**: Every record is converted into a unique SHA-256 hash, serving as a digital fingerprint for the degree.
+* **Student Vault**: A personal portal where students can unlock their credentials using their Admission Number and University name.
+* **Instant Verification**: Employers can verify any credential instantly by entering the hash or scanning a dynamic QR code.
+* **Automated Email Delivery**: The Resend API automatically delivers the unique ledger hash to the student's email upon minting.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Tech Stack
+* **Frontend**: Next.js 14 (App Router)
+* **Styling**: Tailwind CSS with High-End Glassmorphism
+* **Database**: Supabase (PostgreSQL) with Row Level Security (RLS)
+* **Email Engine**: Resend API
+* **Icons**: Lucide React
+* **Deployment**: Vercel & GitHub
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🏗️ Project Architecture
+1.  **Issue**: The University uploads student data (Manual/Excel). The system generates a unique hash based on metadata.
+2.  **Store**: Data is pushed to the Supabase `certificates` table.
+3.  **Notify**: Student receives their unique hash via email.
+4.  **Verify**: Employer scans the QR code from the Student Vault card to verify the record against the live ledger.
 
-## Learn More
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

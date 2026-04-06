@@ -73,8 +73,8 @@ export default function UniversityAuth() {
           {/* onValueChange clears data when switching tabs */}
           <Tabs defaultValue="login" onValueChange={clearInputs} className="space-y-8">
             <TabsList className="grid w-full grid-cols-2 bg-amber-50/50 p-1 rounded-xl h-12 border border-amber-200">
-              <TabsTrigger value="login" className="rounded-lg font-bold data-[state=active]:bg-amber-500 data-[state=active]:text-white transition-all duration-300">Login</TabsTrigger>
-              <TabsTrigger value="signup" className="rounded-lg font-bold data-[state=active]:bg-amber-500 data-[state=active]:text-white transition-all duration-300">Sign Up</TabsTrigger>
+              <TabsTrigger value="login" className="rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-gray-900 transition-all duration-300">Login</TabsTrigger>
+              <TabsTrigger value="signup" className="rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-gray-900 transition-all duration-300">Sign Up</TabsTrigger>
             </TabsList>
 
             <div className="space-y-4">

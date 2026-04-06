@@ -1,7 +1,6 @@
 "use client";
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -23,37 +22,55 @@ export default function UniversityAuth() {
   const handleSignup = async () => {
     if (!name || !pass) return alert("Please fill all fields.");
     setLoading(true);
-    const { error } = await supabase
-      .from('authorized_universities')
-      .insert([{ univ_name: name, access_password: pass }]);
-    
-    if (error) {
-      alert(error.code === '23505' ? "This University is already registered." : "Signup Error: " + error.message);
-    } else {
-      alert("Registration Successful! You can now log in.");
-      clearInputs(); // Clear after signup
+
+    try {
+      // Dynamic import to avoid build-time evaluation
+      const { supabase } = await import('@/lib/supabase');
+
+      const { error } = await supabase
+        .from('authorized_universities')
+        .insert([{ univ_name: name, access_password: pass }]);
+
+      if (error) {
+        alert(error.code === '23505' ? "This University is already registered." : "Signup Error: " + error.message);
+      } else {
+        alert("Registration Successful! You can now log in.");
+        clearInputs(); // Clear after signup
+      }
+    } catch (err: any) {
+      alert("Signup Error: " + err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleLogin = async () => {
     if (!name || !pass) return alert("Please fill all fields.");
     setLoading(true);
-    const { data, error } = await supabase
-      .from('authorized_universities')
-      .select('*')
-      .eq('univ_name', name)
-      .eq('access_password', pass)
-      .single();
 
-    if (data && !error) {
-      localStorage.setItem("universityName", data.univ_name);
-      clearInputs(); // Clear before navigating
-      router.push("/university"); 
-    } else {
-      alert("Invalid Credentials. Check your internet or spelling.");
+    try {
+      // Dynamic import to avoid build-time evaluation
+      const { supabase } = await import('@/lib/supabase');
+
+      const { data, error } = await supabase
+        .from('authorized_universities')
+        .select('*')
+        .eq('univ_name', name)
+        .eq('access_password', pass)
+        .single();
+
+      if (data && !error) {
+        localStorage.setItem("universityName", data.univ_name);
+        clearInputs(); // Clear before navigating
+        router.push('/university');
+      } else {
+        alert("Invalid credentials. Please check your university name and password.");
+      }
+    } catch (err: any) {
+      alert("Login Error: " + err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

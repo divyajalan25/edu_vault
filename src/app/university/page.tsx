@@ -142,10 +142,10 @@ export default function UniversityDashboard() {
 
         <Tabs defaultValue="manual" className="space-y-6">
           <TabsList className="glass inline-flex h-16 items-center justify-center rounded-2xl p-1.5">
-            <TabsTrigger value="manual" className="rounded-xl px-10 py-3 text-sm font-bold data-[state=active]:bg-amber-500 data-[state=active]:text-white transition-all duration-300">
+            <TabsTrigger value="manual" className="rounded-xl px-10 py-3 text-sm font-bold data-[state=active]:bg-white data-[state=active]:text-gray-900 transition-all duration-300">
               <UserPlus className="mr-2 h-4 w-4" /> Single Certificate
             </TabsTrigger>
-            <TabsTrigger value="excel" className="rounded-xl px-10 py-3 text-sm font-bold data-[state=active]:bg-amber-500 data-[state=active]:text-white transition-all duration-300">
+            <TabsTrigger value="excel" className="rounded-xl px-10 py-3 text-sm font-bold data-[state=active]:bg-white data-[state=active]:text-gray-900 transition-all duration-300">
               <Database className="mr-2 h-4 w-4" /> Bulk Ledger Upload
             </TabsTrigger>
           </TabsList>
@@ -201,7 +201,7 @@ function InputField({ label, value, placeholder, onChange }: any) {
         value={value} 
         placeholder={placeholder} 
         onChange={onChange} 
-        className="h-14 rounded-2xl bg-white/5 border-white/10 text-gray-800 placeholder:text-amber-400 focus:border-amber-500 transition-all duration-300 font-medium" 
+        className="h-14 rounded-2xl bg-white/5 border-white/10 text-gray-900 placeholder:text-amber-400 focus:border-amber-500 transition-all duration-300 font-medium" 
       />
     </div>
   );

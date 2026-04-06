@@ -1,13 +1,21 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, CheckCircle2, Loader2, XCircle } from "lucide-react";
 
+interface CertificateData {
+  hash: string;
+  student_name: string;
+  university_name: string;
+  degree_name: string;
+  record_url: string;
+  roll_no?: string;
+}
+
 export default function EmployerVerifier() {
   const [hash, setHash] = useState("");
-  const [data, setData] = useState<any>(null); 
+  const [data, setData] = useState<CertificateData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
@@ -23,24 +31,34 @@ export default function EmployerVerifier() {
 
   const handleVerify = async (inputHash: string) => {
     if (!inputHash) return;
-    
+
     setLoading(true);
     setError(false);
     setData(null); // FIX: Clear previous student data immediately
 
-    const { data: res, error: dbError } = await supabase
-      .from('certificates')
-      .select('*')
-      .eq('hash', inputHash.trim()) // Query exactly one unique hash
-      .single();
+    try {
+      // Dynamic import to avoid build-time evaluation
+      const { supabase } = await import('@/lib/supabase');
 
-    if (res) {
-      setData(res); // Load the NEW student record
-    } else {
+      const { data: res, error: dbError } = await supabase
+        .from('certificates')
+        .select('*')
+        .eq('hash', inputHash.trim()) // Query exactly one unique hash
+        .single();
+
+      if (res && !dbError) {
+        setData(res); // Load the NEW student record
+      } else {
+        setError(true);
+        setData(null); // Ensure screen stays empty if hash is fake
+      }
+    } catch (err) {
+      console.error('Verification error:', err);
       setError(true);
-      setData(null); // Ensure screen stays empty if hash is fake
+      setData(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

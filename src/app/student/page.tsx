@@ -1,11 +1,31 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-// FIXED: All required icons imported
 import { ShieldCheck, Copy, Check, Loader2, Award, Zap, Landmark } from "lucide-react";
+
+// Constants for better maintainability and security
+const STORAGE_KEYS = {
+  LINKEDIN_TOKEN: 'linkedin_access_token',
+  LINKEDIN_EXPIRY: 'linkedin_token_expiry',
+  LINKEDIN_MEMBER_ID: 'linkedin_member_id',
+  UNIVERSITY_NAME: 'universityName',
+} as const;
+
+const TIMEOUTS = {
+  COPY_FEEDBACK: 2000,
+  LINKEDIN_POPUP_CHECK: 1000,
+  LINKEDIN_TIMEOUT: 300000, // 5 minutes
+} as const;
+
+const MESSAGES = {
+  FILL_FIELDS: 'Please fill in both university name and admission number.',
+  RECORD_NOT_FOUND: 'Record not found on secure ledger.',
+  LINKEDIN_TIMEOUT: 'LinkedIn connection timed out. Please try again.',
+  LINKEDIN_FAILED: 'Failed to connect to LinkedIn. Please try again.',
+  INTEGRATION_FAILED: 'Integration failed.',
+} as const;
 
 interface Certificate {
   student_name: string;
@@ -22,52 +42,130 @@ interface CertFieldProps {
   icon?: React.ReactNode;
 }
 
-export default function StudentVault() {
-  const [admission, setAdmission] = useState("");
-  const [univSearch, setUnivSearch] = useState("");
-  const [data, setData] = useState<Certificate | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [integrationLoading, setIntegrationLoading] = useState(false);
-  const [integrationMessage, setIntegrationMessage] = useState<string | null>(null);
-  const [linkedinConnected, setLinkedinConnected] = useState(false);
-  const [linkedinLoading, setLinkedinLoading] = useState(false);
+interface ErrorState {
+  message: string;
+  type: 'error' | 'warning' | 'info';
+}
 
+export default function StudentVault() {
+  // Form state
+  const [admission, setAdmission] = useState<string>("");
+  const [univSearch, setUnivSearch] = useState<string>("");
+
+  // Data state
+  const [data, setData] = useState<Certificate | null>(null);
+
+  // UI state
+  const [loading, setLoading] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+  const [integrationLoading, setIntegrationLoading] = useState<boolean>(false);
+  const [integrationMessage, setIntegrationMessage] = useState<string | null>(null);
+  const [linkedinConnected, setLinkedinConnected] = useState<boolean>(false);
+  const [linkedinLoading, setLinkedinLoading] = useState<boolean>(false);
+
+  // Error state
+  const [error, setError] = useState<ErrorState | null>(null);
+
+  // Check LinkedIn connection status on mount
   useEffect(() => {
-    // Check if LinkedIn is already connected
-    const token = localStorage.getItem('linkedin_access_token');
-    const expiry = localStorage.getItem('linkedin_token_expiry');
-    if (token && expiry && Date.now() < parseInt(expiry)) {
-      setLinkedinConnected(true);
-    } else if (token) {
-      // Token expired, remove it
-      localStorage.removeItem('linkedin_access_token');
-      localStorage.removeItem('linkedin_token_expiry');
+    try {
+      const token = localStorage.getItem(STORAGE_KEYS.LINKEDIN_TOKEN);
+      const expiry = localStorage.getItem(STORAGE_KEYS.LINKEDIN_EXPIRY);
+
+      if (token && expiry) {
+        const expiryTime = parseInt(expiry, 10);
+        if (Date.now() < expiryTime) {
+          setLinkedinConnected(true);
+        } else {
+          // Clean up expired tokens
+          localStorage.removeItem(STORAGE_KEYS.LINKEDIN_TOKEN);
+          localStorage.removeItem(STORAGE_KEYS.LINKEDIN_EXPIRY);
+          localStorage.removeItem(STORAGE_KEYS.LINKEDIN_MEMBER_ID);
+        }
+      }
+    } catch (err) {
+      // Silently handle localStorage errors (e.g., in private browsing)
+      console.warn('Failed to access localStorage:', err);
     }
   }, []);
 
-  const fetchRecord = async () => {
-    if (!admission || !univSearch) return alert("Fill both fields.");
+  // Fetch certificate record from database
+  const fetchRecord = useCallback(async (): Promise<void> => {
+    // Input validation
+    if (!admission.trim() || !univSearch.trim()) {
+      setError({ message: MESSAGES.FILL_FIELDS, type: 'warning' });
+      return;
+    }
+
     setLoading(true);
-    const { data: res } = await supabase.from('certificates')
-      .select('*').eq('university_name', univSearch.trim()).eq('roll_no', admission.trim()).single();
-    
-    if (res) setData(res);
-    else alert("Record not found on secure ledger.");
-    setLoading(false);
-  };
+    setError(null);
+    setData(null);
 
-  const handleCopy = () => {
-    if (!data) return;
-    navigator.clipboard.writeText(data.hash);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleLinkedInConnect = async () => {
-    setLinkedinLoading(true);
     try {
-      // Open LinkedIn OAuth popup
+      // Dynamic import to avoid build-time evaluation
+      const { supabase } = await import('@/lib/supabase');
+
+      const { data: result, error: dbError } = await supabase
+        .from('certificates')
+        .select('*')
+        .eq('university_name', univSearch.trim())
+        .eq('roll_no', admission.trim())
+        .single();
+
+      if (dbError) {
+        throw new Error(dbError.message);
+      }
+
+      if (result) {
+        setData(result);
+      } else {
+        setError({ message: MESSAGES.RECORD_NOT_FOUND, type: 'info' });
+      }
+    } catch (err) {
+      console.error('Database query failed:', err);
+      setError({
+        message: err instanceof Error ? err.message : 'An unexpected error occurred',
+        type: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [admission, univSearch]);
+
+  // Copy hash to clipboard with user feedback
+  const handleCopy = useCallback(async (): Promise<void> => {
+    if (!data?.hash) return;
+
+    try {
+      await navigator.clipboard.writeText(data.hash);
+      setCopied(true);
+      setTimeout(() => setCopied(false), TIMEOUTS.COPY_FEEDBACK);
+    } catch (err) {
+      console.error('Clipboard write failed:', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = data.hash;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        setTimeout(() => setCopied(false), TIMEOUTS.COPY_FEEDBACK);
+      } catch (fallbackErr) {
+        console.error('Fallback copy failed:', fallbackErr);
+        setError({ message: 'Failed to copy to clipboard', type: 'error' });
+      } finally {
+        document.body.removeChild(textArea);
+      }
+    }
+  }, [data?.hash]);
+
+  // Handle LinkedIn OAuth connection
+  const handleLinkedInConnect = useCallback(async (): Promise<void> => {
+    setLinkedinLoading(true);
+    setError(null);
+
+    try {
       const width = 600;
       const height = 600;
       const left = window.innerWidth / 2 - width / 2;
@@ -76,91 +174,193 @@ export default function StudentVault() {
       const popup = window.open(
         '/api/linkedin/auth',
         'linkedin-auth',
-        `width=${width},height=${height},left=${left},top=${top}`
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
       );
 
-      // Listen for auth completion
+      if (!popup) {
+        throw new Error('Popup blocked by browser. Please allow popups for this site.');
+      }
+
+      // Monitor popup status
       const checkClosed = setInterval(() => {
-        if (popup?.closed) {
+        if (popup.closed) {
           clearInterval(checkClosed);
-          // Check if auth was successful
-          const token = localStorage.getItem('linkedin_access_token');
-          if (token) {
-            setLinkedinConnected(true);
+          // Verify connection was successful
+          try {
+            const token = localStorage.getItem(STORAGE_KEYS.LINKEDIN_TOKEN);
+            if (token) {
+              setLinkedinConnected(true);
+            } else {
+              setError({ message: 'LinkedIn connection was cancelled or failed.', type: 'warning' });
+            }
+          } catch (storageErr) {
+            setError({ message: 'Failed to verify LinkedIn connection.', type: 'error' });
           }
           setLinkedinLoading(false);
         }
-      }, 1000);
+      }, TIMEOUTS.LINKEDIN_POPUP_CHECK);
 
-      // Timeout after 5 minutes
+      // Timeout after specified period
       setTimeout(() => {
-        if (!popup?.closed) {
-          popup?.close();
+        if (!popup.closed) {
+          popup.close();
+          clearInterval(checkClosed);
           setLinkedinLoading(false);
-          alert('LinkedIn connection timed out. Please try again.');
+          setError({ message: MESSAGES.LINKEDIN_TIMEOUT, type: 'warning' });
         }
-      }, 300000);
+      }, TIMEOUTS.LINKEDIN_TIMEOUT);
 
-    } catch (error) {
-      console.error('LinkedIn connection error:', error);
+    } catch (err) {
+      console.error('LinkedIn connection error:', err);
       setLinkedinLoading(false);
-      alert('Failed to connect to LinkedIn. Please try again.');
+      setError({
+        message: err instanceof Error ? err.message : MESSAGES.LINKEDIN_FAILED,
+        type: 'error'
+      });
     }
-  };
+  }, []);
 
-  const handleProfileIntegration = async () => {
+  // Handle profile integration (LinkedIn + HRMS)
+  const handleProfileIntegration = useCallback(async (): Promise<void> => {
     if (!data) return;
+
     setIntegrationLoading(true);
     setIntegrationMessage(null);
+    setError(null);
 
     try {
       const recordUrl = `${window.location.origin}/employer?hash=${data.hash}`;
-      const linkedinToken = localStorage.getItem('linkedin_access_token');
+
+      // Get stored LinkedIn token
+      let linkedinToken: string | undefined;
+      try {
+        linkedinToken = localStorage.getItem(STORAGE_KEYS.LINKEDIN_TOKEN) || undefined;
+      } catch (storageErr) {
+        console.warn('Failed to access LinkedIn token from storage:', storageErr);
+      }
 
       const response = await fetch('/api/profile-integration', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           hash: data.hash,
           studentName: data.student_name,
           universityName: data.university_name,
           degreeName: data.degree_name,
           recordUrl,
-          linkedinToken, // Pass the stored token
+          linkedinToken,
         }),
       });
 
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Integration failed');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
 
-      if (result.details?.linkedin === 'success' && result.details?.hrms === 'success') {
-        setIntegrationMessage('LinkedIn and HRMS update sent successfully.');
-      } else if (result.details?.linkedin === 'success') {
-        setIntegrationMessage('LinkedIn update sent successfully. HRMS integration is not configured.');
-      } else if (result.details?.hrms === 'success') {
-        setIntegrationMessage('HRMS update sent successfully. LinkedIn integration is not configured.');
+      const result = await response.json();
+
+      // Determine success message based on results
+      const linkedinSuccess = result.details?.linkedin === 'success';
+      const hrmsSuccess = result.details?.hrms === 'success';
+
+      if (linkedinSuccess && hrmsSuccess) {
+        setIntegrationMessage('Successfully shared to LinkedIn and HRMS.');
+      } else if (linkedinSuccess) {
+        setIntegrationMessage('Successfully shared to LinkedIn. HRMS integration not configured.');
+      } else if (hrmsSuccess) {
+        setIntegrationMessage('Successfully shared to HRMS. LinkedIn integration not configured.');
       } else {
         setIntegrationMessage(result.message || 'Integration completed with partial results.');
       }
-    } catch (error: any) {
-      setIntegrationMessage(error?.message || 'Integration failed.');
+    } catch (err) {
+      console.error('Profile integration failed:', err);
+      const errorMessage = err instanceof Error ? err.message : MESSAGES.INTEGRATION_FAILED;
+      setError({ message: errorMessage, type: 'error' });
+    } finally {
+      setIntegrationLoading(false);
     }
-
-    setIntegrationLoading(false);
-  };
+  }, [data]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 space-y-12 bg-[#fef7f0]">
-      <div className="text-center space-y-4">
-        <h2 className="text-6xl font-black italic tracking-tighter text-gray-800">Vault<span className="text-amber-500">.</span></h2>
-        <div className="max-w-md mx-auto space-y-4 pt-6">
-          <Input placeholder="UNIVERSITY NAME" className="h-16 bg-white border-amber-200 rounded-2xl px-6 font-bold text-gray-800 placeholder:text-amber-400" onChange={e => setUnivSearch(e.target.value)} />
-          <Input placeholder="ADMISSION NUMBER" className="h-16 bg-white border-amber-200 rounded-2xl px-6 font-bold text-gray-800 placeholder:text-amber-400" onChange={e => setAdmission(e.target.value)} />
-          <Button onClick={fetchRecord} className="w-full h-16 bg-amber-500 rounded-2xl font-black text-lg uppercase tracking-widest transition-all duration-300 shadow-lg shadow-amber-500/20 hover:bg-amber-600 hover:shadow-amber-600/20">
-            {loading ? <Loader2 className="animate-spin" /> : "Unlock My Certificate"}
+      <header className="text-center space-y-4">
+        <h1 className="text-6xl font-black italic tracking-tighter text-gray-800">
+          Vault<span className="text-amber-500">.</span>
+        </h1>
+
+        {/* Error Display */}
+        {error && (
+          <div
+            role="alert"
+            aria-live="polite"
+            className={`max-w-md mx-auto p-4 rounded-2xl border ${
+              error.type === 'error'
+                ? 'bg-red-50 border-red-200 text-red-800'
+                : error.type === 'warning'
+                ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                : 'bg-blue-50 border-blue-200 text-blue-800'
+            }`}
+          >
+            <p className="font-medium">{error.message}</p>
+          </div>
+        )}
+
+        <form
+          className="max-w-md mx-auto space-y-4 pt-6"
+          onSubmit={(e) => {
+            e.preventDefault();
+            fetchRecord();
+          }}
+        >
+          <div>
+            <label htmlFor="university-input" className="sr-only">
+              University Name
+            </label>
+            <Input
+              id="university-input"
+              placeholder="UNIVERSITY NAME"
+              className="h-16 bg-white border-amber-200 rounded-2xl px-6 font-bold text-gray-800 placeholder:text-amber-400"
+              value={univSearch}
+              onChange={(e) => setUnivSearch(e.target.value)}
+              disabled={loading}
+              aria-describedby={error ? "error-message" : undefined}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="admission-input" className="sr-only">
+              Admission Number
+            </label>
+            <Input
+              id="admission-input"
+              placeholder="ADMISSION NUMBER"
+              className="h-16 bg-white border-amber-200 rounded-2xl px-6 font-bold text-gray-800 placeholder:text-amber-400"
+              value={admission}
+              onChange={(e) => setAdmission(e.target.value)}
+              disabled={loading}
+              aria-describedby={error ? "error-message" : undefined}
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full h-16 bg-amber-500 rounded-2xl font-black text-lg uppercase tracking-widest transition-all duration-300 shadow-lg shadow-amber-500/20 hover:bg-amber-600 hover:shadow-amber-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-describedby={loading ? "loading-status" : undefined}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="animate-spin mr-2" aria-hidden="true" />
+                <span id="loading-status">Searching records...</span>
+              </>
+            ) : (
+              "Unlock My Certificate"
+            )}
           </Button>
-        </div>
-      </div>
+        </form>
+      </header>
 
       {data && (
         <div className="certificate-warm p-1 relative max-w-2xl w-full rounded-[3rem] shadow-2xl overflow-hidden">
@@ -200,24 +400,80 @@ export default function StudentVault() {
               </div>
             </div>
 
-            <div className="space-y-4 relative z-10">
+            <section
+              className="space-y-4 relative z-10"
+              aria-labelledby="integration-heading"
+            >
+              <h4 id="integration-heading" className="sr-only">
+                Profile Integration Options
+              </h4>
+
               {!linkedinConnected ? (
-                <Button onClick={handleLinkedInConnect} disabled={linkedinLoading} className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-lg transition-all duration-300 shadow-lg shadow-blue-500/20 active:scale-95">
-                  {linkedinLoading ? <Loader2 className="animate-spin" /> : "Connect LinkedIn"}
+                <Button
+                  onClick={handleLinkedInConnect}
+                  disabled={linkedinLoading}
+                  className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-lg transition-all duration-300 shadow-lg shadow-blue-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-describedby={linkedinLoading ? "linkedin-loading" : undefined}
+                >
+                  {linkedinLoading ? (
+                    <>
+                      <Loader2 className="animate-spin mr-2" aria-hidden="true" />
+                      <span id="linkedin-loading">Connecting to LinkedIn...</span>
+                    </>
+                  ) : (
+                    "Connect LinkedIn"
+                  )}
                 </Button>
               ) : (
-                <div className="flex items-center justify-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-2xl">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-bold text-blue-800">LinkedIn Connected</span>
+                <div
+                  className="flex items-center justify-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-2xl"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <div
+                    className="w-3 h-3 bg-green-500 rounded-full"
+                    aria-hidden="true"
+                  ></div>
+                  <span className="text-sm font-bold text-blue-800">
+                    LinkedIn Connected
+                  </span>
                 </div>
               )}
-              <Button onClick={handleProfileIntegration} disabled={integrationLoading || !linkedinConnected} className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-lg transition-all duration-300 shadow-lg shadow-amber-500/20 active:scale-95 disabled:opacity-50">
-                {integrationLoading ? <Loader2 className="animate-spin" /> : "Add to Profile"}
+
+              <Button
+                onClick={handleProfileIntegration}
+                disabled={integrationLoading || !linkedinConnected}
+                className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-lg transition-all duration-300 shadow-lg shadow-amber-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-describedby={integrationLoading ? "integration-loading" : !linkedinConnected ? "linkedin-required" : undefined}
+              >
+                {integrationLoading ? (
+                  <>
+                    <Loader2 className="animate-spin mr-2" aria-hidden="true" />
+                    <span id="integration-loading">Sharing to profile...</span>
+                  </>
+                ) : (
+                  "Add to Profile"
+                )}
               </Button>
-              {integrationMessage && (
-                <p className="text-sm text-gray-700 font-medium">{integrationMessage}</p>
+
+              {!linkedinConnected && (
+                <p id="linkedin-required" className="text-xs text-gray-600 text-center">
+                  Connect LinkedIn first to enable profile sharing
+                </p>
               )}
-            </div>
+
+              {integrationMessage && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="p-3 bg-green-50 border border-green-200 rounded-2xl"
+                >
+                  <p className="text-sm text-green-800 font-medium text-center">
+                    {integrationMessage}
+                  </p>
+                </div>
+              )}
+            </section>
           </div>
         </div>
       )}
@@ -229,10 +485,14 @@ function CertField({ label, value, icon }: CertFieldProps) {
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1.5 text-slate-500">
-        {icon}
-        <p className="text-[9px] font-black uppercase tracking-widest">{label}</p>
+        {icon && <span aria-hidden="true">{icon}</span>}
+        <p className="text-[9px] font-black uppercase tracking-widest">
+          {label}
+        </p>
       </div>
-      <p className="text-2xl font-black text-black italic tracking-tight leading-none">{value}</p>
+      <p className="text-2xl font-black text-black italic tracking-tight leading-none">
+        {value}
+      </p>
     </div>
   );
 }

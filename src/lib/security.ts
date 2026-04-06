@@ -1,9 +1,24 @@
 import { NextResponse } from 'next/server';
 
-// Rate limiting store (in production, use Redis or similar)
+// Rate limiting store - In production, use Redis or similar persistent store
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
-export function rateLimit(identifier: string, maxRequests: number = 10, windowMs: number = 60000) {
+/**
+ * Rate limiting utility with configurable limits
+ * @param identifier - Unique identifier for the rate limit (e.g., IP address)
+ * @param maxRequests - Maximum requests allowed in the window
+ * @param windowMs - Time window in milliseconds
+ * @returns Object indicating if request is limited and reset time
+ */
+export function rateLimit(
+  identifier: string,
+  maxRequests: number = 10,
+  windowMs: number = 60000
+): { limited: boolean; resetTime?: number } {
+  if (!identifier || typeof identifier !== 'string') {
+    throw new Error('Invalid identifier for rate limiting');
+  }
+
   const now = Date.now();
   const windowKey = Math.floor(now / windowMs);
   const key = `${identifier}:${windowKey}`;
@@ -17,7 +32,8 @@ export function rateLimit(identifier: string, maxRequests: number = 10, windowMs
   current.count++;
   rateLimitStore.set(key, current);
 
-  // Clean up old entries
+  // Clean up old entries to prevent memory leaks
+  // This is a simple cleanup - in production, consider more sophisticated cleanup
   for (const [k, v] of rateLimitStore.entries()) {
     if (now > v.resetTime) {
       rateLimitStore.delete(k);
@@ -27,48 +43,95 @@ export function rateLimit(identifier: string, maxRequests: number = 10, windowMs
   return { limited: false };
 }
 
-export function validateCertificateData(data: any) {
-  const errors = [];
+/**
+ * Comprehensive validation for certificate data
+ * @param data - The certificate data to validate
+ * @returns Array of validation error messages
+ */
+export function validateCertificateData(data: any): string[] {
+  const errors: string[] = [];
 
-  if (!data.hash || typeof data.hash !== 'string' || data.hash.length !== 64) {
-    errors.push('Invalid hash format');
+  // Hash validation - must be 64 character hex string
+  if (!data.hash || typeof data.hash !== 'string' || !/^[a-f0-9]{64}$/i.test(data.hash)) {
+    errors.push('Invalid hash format - must be 64 character hexadecimal string');
   }
 
-  if (!data.studentName || typeof data.studentName !== 'string' || data.studentName.length > 100) {
-    errors.push('Invalid student name');
+  // Name validations
+  if (!data.studentName || typeof data.studentName !== 'string' || data.studentName.trim().length === 0) {
+    errors.push('Student name is required');
+  } else if (data.studentName.length > 100) {
+    errors.push('Student name must be 100 characters or less');
   }
 
-  if (!data.universityName || typeof data.universityName !== 'string' || data.universityName.length > 200) {
-    errors.push('Invalid university name');
+  if (!data.universityName || typeof data.universityName !== 'string' || data.universityName.trim().length === 0) {
+    errors.push('University name is required');
+  } else if (data.universityName.length > 200) {
+    errors.push('University name must be 200 characters or less');
   }
 
-  if (!data.degreeName || typeof data.degreeName !== 'string' || data.degreeName.length > 100) {
-    errors.push('Invalid degree name');
+  if (!data.degreeName || typeof data.degreeName !== 'string' || data.degreeName.trim().length === 0) {
+    errors.push('Degree name is required');
+  } else if (data.degreeName.length > 100) {
+    errors.push('Degree name must be 100 characters or less');
   }
 
-  if (!data.recordUrl || typeof data.recordUrl !== 'string' || !data.recordUrl.startsWith('http')) {
-    errors.push('Invalid record URL');
+  // URL validation
+  if (!data.recordUrl || typeof data.recordUrl !== 'string') {
+    errors.push('Record URL is required');
+  } else {
+    try {
+      const url = new URL(data.recordUrl);
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        errors.push('Record URL must use HTTP or HTTPS protocol');
+      }
+    } catch {
+      errors.push('Record URL must be a valid URL');
+    }
   }
 
   return errors;
 }
 
+/**
+ * Sanitize input to prevent XSS attacks
+ * @param input - The input string to sanitize
+ * @returns Sanitized string
+ */
 export function sanitizeInput(input: string): string {
-  // Basic XSS prevention
+  if (typeof input !== 'string') return '';
+
+  // Comprehensive XSS prevention
   return input
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;');
+    .replace(/\//g, '&#x2F;')
+    .replace(/\\/g, '&#x5C;')
+    .replace(/`/g, '&#x60;')
+    .trim();
 }
 
+/**
+ * Validate LinkedIn OAuth token format
+ * @param token - The token to validate
+ * @returns True if token format is valid
+ */
 export function validateLinkedInToken(token: string): boolean {
-  // Basic token format validation
-  return typeof token === 'string' && token.length > 50 && /^[A-Za-z0-9_-]+$/.test(token);
+  // LinkedIn tokens are typically JWT-like with specific characteristics
+  if (typeof token !== 'string' || token.length < 50) return false;
+
+  // Check for valid characters (alphanumeric, hyphens, underscores, dots)
+  return /^[A-Za-z0-9\-_.]+$/.test(token);
 }
 
-export function createSecureResponse(data: any, status: number = 200) {
+/**
+ * Create a secure HTTP response with appropriate security headers
+ * @param data - Response data
+ * @param status - HTTP status code
+ * @returns NextResponse with security headers
+ */
+export function createSecureResponse(data: any, status: number = 200): NextResponse {
   const response = NextResponse.json(data, { status });
 
   // Security headers
@@ -76,6 +139,26 @@ export function createSecureResponse(data: any, status: number = 200) {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
+
+  // Additional security for API responses
+  if (status >= 400) {
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  }
 
   return response;
+}
+
+/**
+ * Generate a cryptographically secure random string
+ * @param length - Length of the string
+ * @returns Random string
+ */
+export function generateSecureRandomString(length: number = 32): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }

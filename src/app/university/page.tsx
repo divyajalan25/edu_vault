@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
 import crypto from 'crypto';
 import { Button } from "@/components/ui/button";
@@ -48,24 +47,33 @@ export default function UniversityDashboard() {
     setLoading(true);
 
     const hash = generateHash(student);
-    const { error } = await supabase.from('certificates').insert([{
-      university_name: univ,
-      student_name: student.name,
-      roll_no: student.admission,
-      year_of_passing: student.year,
-      degree_name: student.degree,
-      college_email: student.email,
-      hash: hash
-    }]);
 
-    if (!error) {
-      await triggerEmail(student.email, student.name, hash);
-      alert("Success! Degree minted and student notified.");
-      setStudent({ name: '', admission: '', year: '', degree: '', email: '' });
-    } else {
-      alert("Error: " + error.message);
+    try {
+      // Dynamic import to avoid build-time evaluation
+      const { supabase } = await import('@/lib/supabase');
+
+      const { error } = await supabase.from('certificates').insert([{
+        university_name: univ,
+        student_name: student.name,
+        roll_no: student.admission,
+        year_of_passing: student.year,
+        degree_name: student.degree,
+        college_email: student.email,
+        hash: hash
+      }]);
+
+      if (!error) {
+        await triggerEmail(student.email, student.name, hash);
+        alert("Success! Degree minted and student notified.");
+        setStudent({ name: '', admission: '', year: '', degree: '', email: '' });
+      } else {
+        alert("Error: " + error.message);
+      }
+    } catch (err: any) {
+      alert("Minting Error: " + err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleExcel = (e: any) => {
@@ -97,6 +105,8 @@ export default function UniversityDashboard() {
         });
 
         // 1. Bulk Database Insert
+        // Dynamic import to avoid build-time evaluation
+        const { supabase } = await import('@/lib/supabase');
         const { error } = await supabase.from('certificates').insert(records);
         
         if (!error) {

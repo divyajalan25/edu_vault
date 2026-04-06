@@ -117,7 +117,7 @@ export default function UniversityDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-transparent text-white p-6 md:p-12 relative">
+    <div className="min-h-screen bg-transparent text-gray-900 p-6 md:p-12 relative">
       <div className="max-w-5xl mx-auto space-y-10 relative z-10">
         
         {/* HEADER */}

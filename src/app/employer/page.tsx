@@ -93,7 +93,7 @@ function VerifyField({ label, value }: any) {
   return (
     <div>
       <p className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em] mb-1">{label}</p>
-      <p className="text-lg font-bold text-white">{value}</p>
+      <p className="text-lg font-bold text-gray-800">{value}</p>
     </div>
   );
 }

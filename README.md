@@ -1,5 +1,13 @@
 # 📜 EduVault: Blockchain-Verified Credential Ledger
 
+
+🚀 Vision
+EduVault is an indigenous trust infrastructure designed to secure India's academic future. By transforming degrees into Soulbound Tokens (SBTs), we eliminate the 30-day manual verification backlog and render certificate forgery mathematically impossible.
+
+# Prototype Live Link
+https://edu-vault-ecru.vercel.app
+
+
 **EduVault** is a decentralized-inspired ecosystem built to solve the crisis of academic credential fraud. By using unique cryptographic hashes and automated verification loops, it ensures that every degree issued is permanent, verifiable, and secure.
 
 
@@ -25,4 +33,8 @@
 3.  **Notify**: Student receives their unique hash via email.
 4.  **Verify**: Employer scans the QR code from the Student Vault card to verify the record against the live ledger.
 
-
+# Team Members
+ Divya Jalan
+ Siya Julka
+ Riddhi Garg
+ Sameer Gera

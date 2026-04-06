@@ -154,11 +154,26 @@ export function createSecureResponse(data: any, status: number = 200): NextRespo
  * @param length - Length of the string
  * @returns Random string
  */
+function getSecureRandomBytes(length: number): Uint8Array {
+  if (typeof globalThis?.crypto?.getRandomValues === 'function') {
+    return globalThis.crypto.getRandomValues(new Uint8Array(length));
+  }
+
+  try {
+    // Node.js fallback for secure randomness
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { randomBytes } = require('crypto');
+    return randomBytes(length);
+  } catch {
+    throw new Error('Secure random number generator is not available');
+  }
+}
+
 export function generateSecureRandomString(length: number = 32): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+  const randomBytes = getSecureRandomBytes(length);
+
+  return Array.from(randomBytes)
+    .map((value) => chars[value % chars.length])
+    .join('');
 }

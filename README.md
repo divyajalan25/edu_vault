@@ -5,7 +5,7 @@
 
 
 ## 🚀 Key Features
-* **Institutional Node (Issuer)**: Authorized universities can register a secure node and mint single or bulk certificates into the ledger.
+* **Institutional Page (Issuer)**: Authorized universities can register a secure node and mint single or bulk certificates into the ledger.
 * **Immutable Cryptographic Hashing**: Every record is converted into a unique SHA-256 hash, serving as a digital fingerprint for the degree.
 * **Student Vault**: A personal portal where students can unlock their credentials using their Admission Number and University name.
 * **Instant Verification**: Employers can verify any credential instantly by entering the hash or scanning a dynamic QR code.

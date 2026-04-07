@@ -1,6 +1,6 @@
 # 📜 EduVault: Blockchain-Verified Credential Ledger
 
-**EduVault** is a decentralized-inspired ecosystem built to solve the crisis of academic credential fraud. By using unique cryptographic hashes and automated verification loops, it ensures that every degree issued is permanent, verifiable, and secure.
+**EduVault** is   a decentralized-inspired ecosystem built to solve the crisis of academic credential fraud. By using unique cryptographic hashes and automated verification loops, it ensures that every degree issued is permanent, verifiable, and secure.
 
 
 
@@ -16,7 +16,6 @@
 * **Styling**: Tailwind CSS with High-End Glassmorphism
 * **Database**: Supabase (PostgreSQL) with Row Level Security (RLS)
 * **Email Engine**: Resend API
-* **Icons**: Lucide React
 * **Deployment**: Vercel & GitHub
 
 ## 🏗️ Project Architecture

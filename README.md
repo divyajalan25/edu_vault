@@ -15,7 +15,6 @@
 * **Frontend**: Next.js 14 (App Router)
 * **Styling**: Tailwind CSS with High-End Glassmorphism
 * **Database**: Supabase (PostgreSQL) with Row Level Security (RLS)
-* **Email Engine**: Resend API
 * **Deployment**: Vercel & GitHub
 
 ## 🏗️ Project Architecture

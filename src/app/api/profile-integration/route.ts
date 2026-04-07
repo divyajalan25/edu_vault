@@ -11,15 +11,16 @@ async function sendLinkedInPost(payload: {
   degreeName: string;
   recordUrl: string;
   linkedinToken?: string;
+  linkedinMemberId?: string;
 }) {
   if (!payload.linkedinToken) {
     return { status: 'skipped', reason: 'No LinkedIn token provided' };
   }
 
-  // Get member URN from stored data or fetch it
-  let memberUrn = localStorage?.getItem?.('linkedin_member_id');
+  // Get member URN - either from payload or fetch it
+  let memberUrn = payload.linkedinMemberId;
   if (!memberUrn) {
-    // Fallback: try to get it from profile API
+    // Fallback: fetch from LinkedIn profile API
     try {
       const profileResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
         headers: {
@@ -29,8 +30,13 @@ async function sendLinkedInPost(payload: {
       const profileData = await profileResponse.json();
       memberUrn = profileData.sub;
     } catch (error) {
+      console.error('Failed to fetch LinkedIn member ID:', error);
       return { status: 'error', error: 'Could not get LinkedIn member ID' };
     }
+  }
+
+  if (!memberUrn) {
+    return { status: 'error', error: 'LinkedIn member ID is missing' };
   }
 
   const body = {
@@ -68,9 +74,12 @@ async function sendLinkedInPost(payload: {
 
   if (!response.ok) {
     const errorText = await response.text();
-    return { status: 'error', error: errorText };
+    console.error('LinkedIn Share API error:', response.status, errorText);
+    return { status: 'error', error: `LinkedIn API (${response.status}): ${errorText}` };
   }
 
+  const shareResult = await response.json();
+  console.log('LinkedIn share successful:', shareResult);
   return { status: 'success' };
 }
 
@@ -121,7 +130,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { hash, studentName, universityName, degreeName, recordUrl, linkedinToken } = await req.json();
+    const { hash, studentName, universityName, degreeName, recordUrl, linkedinToken, linkedinMemberId } = await req.json();
 
     // Validate input data
     const validationErrors = validateCertificateData({
@@ -155,6 +164,7 @@ export async function POST(req: Request) {
       degreeName: sanitizeInput(degreeName),
       recordUrl: sanitizeInput(recordUrl),
       linkedinToken: linkedinToken ? sanitizeInput(linkedinToken) : undefined,
+      linkedinMemberId: linkedinMemberId ? sanitizeInput(linkedinMemberId) : undefined,
     };
 
     const linkedInResult = await sendLinkedInPost(sanitizedData);

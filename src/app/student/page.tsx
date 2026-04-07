@@ -266,12 +266,14 @@ export default function StudentVault() {
     try {
       const recordUrl = `${window.location.origin}/employer?hash=${data.hash}`;
 
-      // Get stored LinkedIn token
+      // Get stored LinkedIn token and member ID
       let linkedinToken: string | undefined;
+      let linkedinMemberId: string | undefined;
       try {
         linkedinToken = localStorage.getItem(STORAGE_KEYS.LINKEDIN_TOKEN) || undefined;
+        linkedinMemberId = localStorage.getItem(STORAGE_KEYS.LINKEDIN_MEMBER_ID) || undefined;
       } catch (storageErr) {
-        console.warn('Failed to access LinkedIn token from storage:', storageErr);
+        console.warn('Failed to access LinkedIn storage:', storageErr);
       }
 
       const response = await fetch('/api/profile-integration', {
@@ -286,6 +288,7 @@ export default function StudentVault() {
           degreeName: data.degree_name,
           recordUrl,
           linkedinToken,
+          linkedinMemberId,
         }),
       });
 

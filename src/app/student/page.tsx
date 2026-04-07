@@ -260,6 +260,21 @@ export default function StudentVault() {
     }
   }, []);
 
+  const handleLinkedInDisconnect = useCallback((): void => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.LINKEDIN_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.LINKEDIN_EXPIRY);
+      localStorage.removeItem(STORAGE_KEYS.LINKEDIN_MEMBER_ID);
+      setLinkedinConnected(false);
+      setProfileAdded(false);
+      setIntegrationMessage(null);
+      setError(null);
+    } catch (err) {
+      console.error('LinkedIn disconnect failed:', err);
+      setError({ message: 'Failed to disconnect LinkedIn.', type: 'error' });
+    }
+  }, []);
+
   // Handle profile integration (LinkedIn + HRMS)
   const handleProfileIntegration = useCallback(async (): Promise<void> => {
     if (!data) return;
@@ -459,18 +474,25 @@ export default function StudentVault() {
                   )}
                 </Button>
               ) : (
-                <div
-                  className="flex items-center justify-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-2xl"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <div
-                    className="w-3 h-3 bg-green-500 rounded-full"
-                    aria-hidden="true"
-                  ></div>
-                  <span className="text-sm font-bold text-blue-800">
-                    LinkedIn Connected
-                  </span>
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-blue-50 border border-blue-200 rounded-2xl">
+                  <div className="flex items-center gap-2" role="status" aria-live="polite">
+                    <div
+                      className="w-3 h-3 bg-green-500 rounded-full"
+                      aria-hidden="true"
+                    ></div>
+                    <span className="text-sm font-bold text-blue-800">
+                      LinkedIn Connected
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLinkedInDisconnect}
+                    className="min-w-[160px]"
+                  >
+                    Disconnect
+                  </Button>
                 </div>
               )}
 

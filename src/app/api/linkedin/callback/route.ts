@@ -4,9 +4,17 @@ import { rateLimit, createSecureResponse } from '@/lib/security';
 const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID;
 const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET;
 
+function normalizeBaseUrl(url: string): string {
+  return url.replace(/\/+$/, '');
+}
+
 export async function GET(request: Request) {
   const requestOrigin = new URL(request.url).origin;
-  const LINKEDIN_REDIRECT_URI = process.env.LINKEDIN_REDIRECT_URI || `${process.env.NEXT_PUBLIC_BASE_URL || requestOrigin}/api/linkedin/callback`;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+    ? normalizeBaseUrl(process.env.NEXT_PUBLIC_BASE_URL)
+    : requestOrigin;
+  const LINKEDIN_REDIRECT_URI = process.env.LINKEDIN_REDIRECT_URI || `${baseUrl}/api/linkedin/callback`;
+  console.log('LinkedIn callback redirect URI:', LINKEDIN_REDIRECT_URI);
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
   const error = searchParams.get('error');

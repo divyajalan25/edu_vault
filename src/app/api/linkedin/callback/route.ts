@@ -61,8 +61,8 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${baseUrl}/student?error=token_exchange_failed`);
     }
 
-    // Get user profile to verify token and get member URN
-    const profileResponse = await fetch('https://api.linkedin.com/v2/people/~:(id)', {
+    // Get user profile using LinkedIn's OpenID Connect userinfo endpoint
+    const profileResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
       },
@@ -83,9 +83,11 @@ export async function GET(request: Request) {
           <title>LinkedIn Connected</title>
           <script>
             // Store tokens in parent window's localStorage
-            window.opener.localStorage.setItem('linkedin_access_token', '${tokenData.access_token}');
-            window.opener.localStorage.setItem('linkedin_token_expiry', '${Date.now() + (tokenData.expires_in * 1000)}');
-            window.opener.localStorage.setItem('linkedin_member_id', '${profileData.id}');
+            window.opener.localStorage.setItem('linkedin_access_token', ${JSON.stringify(tokenData.access_token)});
+            window.opener.localStorage.setItem('linkedin_token_expiry', ${JSON.stringify(Date.now() + (tokenData.expires_in * 1000))});
+            window.opener.localStorage.setItem('linkedin_member_id', ${JSON.stringify(profileData.sub)});
+            window.opener.localStorage.setItem('linkedin_email', ${JSON.stringify(profileData.email || '')});
+            window.opener.localStorage.setItem('linkedin_name', ${JSON.stringify(profileData.name || '')});
 
             // Close popup and notify parent
             window.close();

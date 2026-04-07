@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { rateLimit, createSecureResponse } from '@/lib/security';
 
 const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID;
-const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET;
 
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/+$/, '');
@@ -32,7 +31,7 @@ export async function GET(request: Request) {
     return createSecureResponse({ error: 'LinkedIn OAuth not configured' }, 500);
   }
 
-  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(LINKEDIN_REDIRECT_URI)}&scope=r_liteprofile%20r_emailaddress%20w_member_social`;
+  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(LINKEDIN_REDIRECT_URI)}&scope=openid%20profile%20email`;
 
   return NextResponse.redirect(authUrl);
 }

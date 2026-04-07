@@ -40,46 +40,51 @@ async function sendLinkedInPost(payload: {
   }
 
   const body = {
-    content: {
-      contentEntities: [
-        {
-          entityLocation: payload.recordUrl,
-          thumbnails: [
-            {
-              resolvedUrl: payload.recordUrl,
-            },
-          ],
+    author: `urn:li:person:${memberUrn}`,
+    lifecycleState: 'PUBLISHED',
+    specificContent: {
+      'com.linkedin.ugc.ShareContent': {
+        shareCommentary: {
+          text: `EduVault has verified my ${payload.degreeName} from ${payload.universityName}. View my credential: ${payload.recordUrl}`,
         },
-      ],
-      title: 'EduVault Credential',
-      description: `EduVault has verified my ${payload.degreeName} from ${payload.universityName}. View my credential: ${payload.recordUrl}`,
+        shareMediaCategory: 'ARTICLE',
+        media: [
+          {
+            status: 'READY',
+            description: {
+              text: `EduVault blockchain credential for ${payload.studentName}`,
+            },
+            originalUrl: payload.recordUrl,
+            title: {
+              text: 'EduVault Credential',
+            },
+          },
+        ],
+      },
     },
-    distribution: {
-      linkedInDistributionTarget: {},
-    },
-    owner: `urn:li:person:${memberUrn}`,
-    text: {
-      text: `EduVault has verified my ${payload.degreeName} from ${payload.universityName}. View my credential: ${payload.recordUrl}`,
+    visibility: {
+      'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
     },
   };
 
-  const response = await fetch('https://api.linkedin.com/v2/shares', {
+  const response = await fetch('https://api.linkedin.com/v2/ugcPosts', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${payload.linkedinToken}`,
       'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0',
     },
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('LinkedIn Share API error:', response.status, errorText);
+    console.error('LinkedIn UGC Post API error:', response.status, errorText);
     return { status: 'error', error: `LinkedIn API (${response.status}): ${errorText}` };
   }
 
-  const shareResult = await response.json();
-  console.log('LinkedIn share successful:', shareResult);
+  const postResult = await response.json();
+  console.log('LinkedIn UGC post successful:', postResult);
   return { status: 'success' };
 }
 

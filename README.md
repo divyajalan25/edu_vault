@@ -31,7 +31,7 @@ https://edu-vault-ecru.vercel.app
 ## 👥 Team Members
 
 - Divya Jalan  
-- Siya Jhulka  
+- Siya Julka  
 - Sameer Gera  
 - Lakshya Jain  
 

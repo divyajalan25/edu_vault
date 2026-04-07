@@ -30,8 +30,6 @@ export async function GET(request: Request) {
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://localhost:3000';
-
   if (error) {
     return NextResponse.redirect(`${baseUrl}/student?error=${error}`);
   }
